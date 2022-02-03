@@ -1,0 +1,367 @@
+### This code will determine joint angles and angular velocities in the sagittal plane using four markers: acromion (ACRM), 
+### greater trocanter (GT), knee (lateral epicond.), and lateral maleolous (ankle). This also calculates countinous relative phase (CRP) 
+### of the Hip-Knee, Thigh-Shank, Torso-Thigh relationships (eg. Miller, et al., 2010, Heiderscheit, et al., 1999, Van Emmerick, et al., 1996) 
+### The data from motion capture is loaded as a .csv file. Only one stride (heel strike to heel strike) is expected. A .csv file  is
+### created and saved to the working file which includes hip, knee, torso, thigh and shank angles and velocities, and the CRP data for each
+### pair. The output data is 101 data points, not time-series data. This will make it possible to average within and between participants.
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import scipy.interpolate as spi
+import numpy as np
+from numpy import diff
+import math
+
+
+# LOAD THE DATA SET
+WalkData = pd.read_csv('NAME_OF_FILE.csv') 
+
+# Things to start of calculation
+time_end   = len(WalkData)*(1/120) 
+xnew       = np.linspace(0,time_end,101)
+dx         = (1/120)
+Data100    = np.linspace(0,101,101)
+DataLen100 = [Data100]
+
+# This is the original time line set from 0
+minTime    = WalkData['Time'].min()
+realTime   = WalkData['Time'] - minTime
+Vtime      = pd.DataFrame(realTime[: len(realTime) - 2])
+
+# Columns of data: Raw data
+#ACRM_X = WalkData['ACRM Y']
+#ACRM_Y = WalkData['ACRM Z']
+#GT_X   = WalkData['GT Y']
+#GT_Y   = WalkData['GT Z']
+#KNEE_X = WalkData['KNEE Y']
+#KNEE_Y = WalkData['KNEE Z']
+#LMAL_X = WalkData['ANKLE Y']
+#LMAL_Y = WalkData['ANKLE Z']
+
+# TORSO
+
+Torso_Y = []
+Torso_X = []
+
+for i,j in zip(WalkData['GT Z'],WalkData['ACRM Z']):
+   Torso_Y.append(i - j)
+for i,j in zip(WalkData['GT Y'],WalkData['ACRM Y']):
+   Torso_X.append(i - j)
+
+# CALCULATE Segment Angle
+Torso  = []
+for i,j in zip(Torso_Y,Torso_X):
+   Torso.append(180+(57.3*(math.atan2(i, j))))
+
+# THIGH
+
+Thigh_Y = []
+Thigh_X = []
+
+for i,j in zip(WalkData['KNEE Z'],WalkData['GT Z']):
+   Thigh_Y.append(i - j)
+for i,j in zip(WalkData['KNEE Y'],WalkData['GT Y']):
+   Thigh_X.append(i - j)
+
+# CALCULATE Segment Angle
+Thigh  = []
+for i,j in zip(Thigh_Y,Thigh_X):
+   Thigh.append(180+(57.3*(math.atan2(i, j))))
+   
+# SHANK
+
+Shank_Y = []
+Shank_X = []
+
+for i,j in zip(WalkData['ANKLE Z'],WalkData['KNEE Z']):
+   Shank_Y.append(i - j)
+for i,j in zip(WalkData['ANKLE Y'],WalkData['KNEE Y']):
+   Shank_X.append(i - j)
+
+# CALCULATE Segment Angle
+Shank  = []
+for i,j in zip(Shank_Y,Shank_X):
+   Shank.append(180+(57.3*(math.atan2(i, j))))
+   
+# JOINT ANGLES
+
+Hip = []
+Knee = []
+   
+for i,j in zip(Torso,Thigh):
+    Hip.append(j - i)
+    
+for i,j in zip(Thigh,Shank):
+    Knee.append(i - j)
+
+# actual data to use for one stride because data is framed by 2 frames to calculate velocity well
+
+Torso_A = Torso[1:-1]
+Thigh_A = Thigh[1:-1]
+Shank_A = Shank[1:-1]
+Hip_A   = Hip[1:-1]
+Knee_A  = Knee[1:-1]
+
+# create figure and axis objects with subplots()
+fig = plt.figure()
+# make a plot
+ax1 = fig.add_subplot(121)
+ax2 = fig.add_subplot(122)
+ax1.title.set_text('Hip Angle')
+ax1.plot(Vtime, Hip_A, color="blue", marker="o")
+# twin object for two different y-axis on the sample plot
+#ax2=ax.twinx()
+# make a plot with different y-axis using second axis object
+ax2.title.set_text('Knee Angle')
+ax2.plot(Vtime, Knee_A,color="red",marker="o")
+plt.show()
+
+############## Interpolated data to 101 data points ################
+
+# Segment and Joint Angles
+intfunc_TORSO = spi.interp1d(realTime[:-2],Torso_A,fill_value="extrapolate")
+intfunc_THIGH = spi.interp1d(realTime[:-2],Thigh_A,fill_value="extrapolate")
+intfunc_SHANK = spi.interp1d(realTime[:-2],Shank_A,fill_value="extrapolate")
+intfunc_HIP   = spi.interp1d(realTime[:-2],Hip_A,fill_value="extrapolate")
+intfunc_KNE   = spi.interp1d(realTime[:-2],Knee_A,fill_value="extrapolate")
+Torso100 = intfunc_TORSO(xnew)
+Thigh100 = intfunc_THIGH(xnew)
+Shank100 = intfunc_SHANK(xnew)
+Hip100   = intfunc_HIP(xnew)
+Knee100  = intfunc_KNE(xnew)
+
+# CHECK IF INTERPOLATION IS CORRECT
+# create figure and axis objects with subplots()
+# fig,ax = plt.subplots()
+# make a plot
+# ax.plot(Data100, Hip100, color="green", marker=".")
+# twin object for two different y-axis on the sample plot
+# ax2=ax.twinx()
+# make a plot with different y-axis using second axis object
+# ax2.plot(Data100, Knee100,color="black",marker=".")
+#plt.show()
+
+# Calculate Velocities And Interpolate
+
+Torso_V   = diff(Torso)/dx
+Thigh_V   = diff(Thigh)/dx
+Shank_V   = diff(Shank)/dx
+Hip_V     = diff(Hip)/dx
+Knee_V    = diff(Knee)/dx
+
+
+# Segment and Joint velocities interpolated data to 101 data points 
+intfunc_TORSOV = spi.interp1d(realTime[0:-2],Torso_V[0:-1],fill_value="extrapolate")
+intfunc_THIGHV = spi.interp1d(realTime[0:-2],Thigh_V[0:-1],fill_value="extrapolate")
+intfunc_SHANKV = spi.interp1d(realTime[0:-2],Shank_V[0:-1],fill_value="extrapolate")
+intfunc_HIPV   = spi.interp1d(realTime[0:-2],Hip_V[0:-1],fill_value="extrapolate")
+intfunc_KNEEV  = spi.interp1d(realTime[0:-2],Knee_V[0:-1],fill_value="extrapolate")
+Torso100_V = intfunc_TORSOV(xnew)
+Thigh100_V = intfunc_THIGHV(xnew)
+Shank100_V = intfunc_SHANKV(xnew)
+Hip100_V   = intfunc_HIPV(xnew)
+Knee100_V  = intfunc_KNEEV(xnew)
+
+# NORMALIZE ANGLES
+
+MaxTorso  = max(Torso100)
+MaxThigh  = max(Thigh100)
+MaxShank  = max(Shank100)
+MaxHip    = max(Hip100)
+MaxKnee   = max(Knee100)
+
+MinTorso  = min(Torso100)
+MinThigh  = min(Thigh100)
+MinShank  = min(Shank100)
+MinHip    = min(Hip100)
+MinKnee   = min(Knee100)
+
+TorsoDenom = MaxTorso - MinTorso
+ThighDenom = MaxThigh - MinThigh
+ShankDenom = MaxShank - MinShank
+HipDenom   = MaxHip - MinHip
+KneeDenom  = MaxKnee - MinKnee
+
+
+normTorso     = []
+for i in Torso100:
+    normTorso.append(2*(((i-MinTorso))/TorsoDenom)-1)
+
+normTorso = np.reshape(normTorso, (101, 1))
+
+normThigh  = []
+for i in Thigh100:
+    normThigh.append(2*(((i-MinThigh))/ThighDenom)-1)
+
+normThigh = np.reshape(normThigh, (101, 1))
+
+normShank  = []
+for i in Shank100:
+    normShank.append(2*(((i-MinShank))/ShankDenom)-1)
+
+normShank = np.reshape(normShank, (101, 1))
+
+normHip     = []
+for i in Hip100:
+    normHip.append(2*(((i-MinHip))/HipDenom)-1)
+
+normHip = np.reshape(normHip, (101, 1))
+
+normKnee  = []
+for i in Knee100:
+    normKnee.append(2*(((i-MinKnee))/KneeDenom)-1)
+
+normKnee = np.reshape(normKnee, (101, 1))
+
+# NORMALIZE VELOCITIES
+
+MaxTorso_V = max(abs(Torso100_V))
+MaxThigh_V = max(abs(Thigh100_V))
+MaxShank_V = max(abs(Shank100_V))
+MaxHip_V   = max(abs(Hip100_V))
+MaxKnee_V  = max(abs(Knee100_V))
+
+
+normTorso_V = []
+for i in Torso100_V:
+    normTorso_V.append(i/MaxTorso_V)
+
+normTorso_V = np.reshape(normTorso_V, (101, 1))
+
+normThigh_V = []
+for i in Thigh100_V:
+    normThigh_V.append(i/MaxThigh_V)
+
+normThigh_V = np.reshape(normThigh_V, (101, 1))
+
+normShank_V = []
+for i in Shank100_V:
+    normShank_V.append(i/MaxShank_V)
+    
+normShank_V = np.reshape(normShank_V, (101, 1))
+
+normHip_V = []
+for i in Hip100_V:
+    normHip_V.append(i/MaxHip_V)
+
+normHip_V = np.reshape(normHip_V, (101, 1))
+
+normKnee_V = []
+for i in Knee100_V:
+    normKnee_V.append(i/MaxKnee_V)
+
+normKnee_V = np.reshape(normKnee_V, (101, 1))
+
+# PHASE ANGLES
+
+PA_Torso = []
+for i,j in zip(normTorso_V,normTorso):
+    PA_Torso.append(57.3*(math.atan2(i, j)))
+
+PA_Torso = np.reshape(PA_Torso, (101, 1))
+
+PA_Thigh = []
+for i,j in zip(normThigh_V, normThigh):
+    PA_Thigh.append(57.3*(math.atan2(i, j)))
+
+PA_Thigh = np.reshape(PA_Thigh, (101, 1))
+
+PA_Shank = []
+for i,j in zip(normShank_V, normShank):
+    PA_Shank.append(57.3*(math.atan2(i, j)))
+
+PA_Shank = np.reshape(PA_Shank, (101, 1))
+
+PA_Hip = []
+for i,j in zip(normHip_V, normHip):
+    PA_Hip.append(57.3*(math.atan2(i, j)))
+
+PA_Hip = np.reshape(PA_Hip, (101, 1))
+
+PA_Knee = []
+for i,j in zip(normKnee_V, normKnee):
+    PA_Knee.append(57.3*(math.atan2(i, j)))
+
+PA_Knee = np.reshape(PA_Knee, (101, 1))
+
+## CHECK PHASE ANGLE PLOTS
+fig = plt.figure()
+# make a plot
+ax1 = fig.add_subplot(121)
+ax2 = fig.add_subplot(122)
+ax1.title.set_text('PA Shank')
+ax1.plot(normShank, normShank_V, color="blue", marker=".")
+# make a plot with different y-axis using second axis object
+ax2.title.set_text('PA Thigh')
+ax2.plot(normThigh, normThigh_V,color="red",marker=".")
+plt.show()
+
+####################    CRP    ########################################################################
+
+CRP_Hip_Knee = []
+for i,j in zip(PA_Knee, PA_Hip):
+    CRP = (abs(j) - abs(i))
+    CRP_Hip_Knee.append(CRP)
+CRP_Hip_Knee = pd.DataFrame(CRP_Hip_Knee)
+CRP_Hip_Knee.columns=['Hip Knee CRP']
+
+CRP_Hip_Knee['Hip Knee CRP'] = CRP_Hip_Knee['Hip Knee CRP'].apply(lambda x: (360 - x) if x > 180 else x)
+
+CRP_Thigh_Shank = []
+for i,j in zip(PA_Shank, PA_Thigh):
+    CRP = (abs(j) - abs(i))
+    CRP_Thigh_Shank.append(CRP)
+CRP_Thigh_Shank = pd.DataFrame(CRP_Thigh_Shank)
+CRP_Thigh_Shank.columns=['Thigh Shank CRP']
+
+CRP_Thigh_Shank['Thigh Shank CRP'] = CRP_Thigh_Shank['Thigh Shank CRP'].apply(lambda x: (360 - x) if x > 180 else x)
+
+CRP_Torso_Thigh = []
+for i,j in zip(PA_Thigh, PA_Torso):
+    CRP = (abs(j) - abs(i))
+    CRP_Torso_Thigh.append(CRP)
+CRP_Torso_Thigh = pd.DataFrame(CRP_Torso_Thigh)
+CRP_Torso_Thigh.columns=['Torso Thigh CRP']
+
+CRP_Torso_Thigh['Torso Thigh CRP'] = CRP_Torso_Thigh['Torso Thigh CRP'].apply(lambda x: (360 - x) if x > 180 else x)
+
+# create figure and axis objects with subplots()
+fig = plt.figure()
+# make a plot
+ax1 = fig.add_subplot(121)
+ax2 = fig.add_subplot(122)
+
+ax1.title.set_text('Hip Knee')
+ax1.plot(Data100, CRP_Hip_Knee,color="blue",marker="o")
+ax2.title.set_text('Thigh Shank')
+ax2.plot(Data100, CRP_Thigh_Shank, color="red", marker="o")
+plt.show()
+
+# MAKE OUTPUT FILE
+Hip100    = pd.DataFrame(Hip100, columns = ['Hip'])
+Knee100   = pd.DataFrame(Knee100, columns = ['Knee'])
+Torso100  = pd.DataFrame(Torso100, columns = ['Torso'])
+Thigh100  = pd.DataFrame(Thigh100, columns = ['Thigh'])
+Shank100  = pd.DataFrame(Shank100, columns = ['Shank'])
+
+Hip100_V   = pd.DataFrame(Hip100_V, columns = ['Hip Vel'])
+Knee100_V  = pd.DataFrame(Knee100_V, columns = ['Knee Vel'])
+Torso100_V = pd.DataFrame(Torso100_V, columns = ['Torso Vel'])
+Thigh100_V = pd.DataFrame(Thigh100_V, columns = ['Thigh Vel'])
+Shank100_V = pd.DataFrame(Shank100_V, columns = ['Shank Vel'])
+
+data = []
+data = pd.concat([Hip100['Hip'],Knee100['Knee'],Torso100['Torso'],Thigh100['Thigh'],
+                  Shank100['Shank'],Hip100_V['Hip Vel'],Knee100_V['Knee Vel'],
+                  Torso100_V['Torso Vel'],Thigh100_V['Thigh Vel'],Shank100_V['Shank Vel'],
+                 CRP_Hip_Knee['Hip Knee CRP'],CRP_Thigh_Shank['Thigh Shank CRP'],
+                 CRP_Torso_Thigh['Torso Thigh CRP']], axis=1)
+
+# Call this by trial and subject
+data.to_csv("Processed_Walking_Data.csv",index=False)
+
+### This will output joint and segment angles and angular velocities and 
+### CRP values calculated for each trial and subject.
+### Further analysis (e.g. participant averages) will be performed by
+### another program.
+
