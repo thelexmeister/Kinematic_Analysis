@@ -1,0 +1,1448 @@
+# This code is written in R and is used to read in data from AI generated joint information, processed by V3D, to create a report for running and walking analysis.
+
+# Load required libraries
+
+library(readxl)
+
+library(zoo)
+
+library(openxlsx)
+
+library(dplyr)
+
+library(stringr)
+
+library(ggplot2)
+
+library(ggthemes)
+
+library(cowplot) 
+
+library(gridExtra) 
+
+library(grid)
+
+library(png)
+
+library(tidyquant)
+
+library(pdftools)
+
+ 
+
+ 
+
+### --- read in file
+
+ 
+
+#Data_people <- read.xlsx("C:/Users/gidleyl/OneDrive - United States Olympic and Paralympic Committee/Desktop/Santiago - PAG and PPAG/People.xlsx")
+
+setwd("C:/Users/gidleyl/OneDrive - United States Olympic and Paralympic Committee/Desktop/Biomechanics Stuff/MotionCaptureReporting - 2024/Para Athlete - Walking OverGround/Test_TM_walking-LDG")
+
+ 
+
+####-------- Sagittal Ankle Angle -----------####
+
+ 
+
+# Read a file using a relative path
+
+rawdata <- read.table("AnkleSag.txt", header = TRUE, sep = "\t")
+
+ 
+
+rows_to_remove <-  c(0,2,3,4)
+
+data_clean <- rawdata[-rows_to_remove, ]
+
+new_column_names <- rawdata[1, ]
+
+colnames(data_clean) <- new_column_names
+
+data_cleaned <- data_clean[-1, ]
+
+Left_Ankle_Mean <- as.numeric(data_cleaned[ ,4])
+
+Right_Ankle_Mean <- as.numeric(data_cleaned[ ,8])
+
+time_points <- as.numeric(data_cleaned[ ,1])
+
+ 
+
+ANK_sag_data <- data.frame(time_points = time_points,
+
+                   Left_Ankle_Mean = Left_Ankle_Mean,
+
+                   Right_Ankle_Mean = Right_Ankle_Mean)
+
+ 
+
+data <- data.frame(time_points = time_points,
+
+                           Left_Ankle_Mean = Left_Ankle_Mean,
+
+                           Right_Ankle_Mean = Right_Ankle_Mean)
+
+ 
+
+ 
+
+# Calculate the relative differences as a percentage
+
+relative_differences <- abs((Left_Ankle_Mean - Right_Ankle_Mean ) / ((Left_Ankle_Mean + Right_Ankle_Mean ) / 2) * 100)
+
+ 
+
+# Set the threshold for highlighting
+
+threshold <- 10  # 5% threshold
+
+ 
+
+# Find the time points where the relative difference exceeds the threshold
+
+exceed_threshold <- relative_differences > threshold
+
+num_exceed_threshold <- sum(exceed_threshold)
+
+percent_exceed_threshold <- as.numeric(round(((num_exceed_threshold / 101)*100),2))
+
+label_text <- sprintf("Difference threshold was exceeded for %.2f%%", percent_exceed_threshold, size = 0.8)
+
+ 
+
+ 
+
+# Create a ggplot with lines for Left and Right Ankle Means
+
+ankleplot <- ggplot(data, aes(x = time_points)) +
+
+  geom_line(aes(y = Left_Ankle_Mean, color = "Left Ankle"), size = 1) +  # Blue line for Left Ankle
+
+  geom_line(aes(y = Right_Ankle_Mean, color = "Right Ankle"), size = 1) +  # Red line for Right Ankle
+
+  scale_color_manual(values = c("blue", "red")) + # Set custom colors for lines
+
+  labs(color = "") +  # Remove legend title
+
+ 
+
+ 
+
+  # Highlight zones where the relative difference exceeds the threshold
+
+  geom_rect(
+
+    data = subset(data, exceed_threshold),
+
+    aes(xmin = time_points - 0.5, xmax = time_points + 0.5,
+
+        ymin = -50, ymax = 50),
+
+    fill = "gray", alpha = 0.3  # Gray with slight transparency
+
+  ) +
+
+  
+
+  # Add annotation to describe highlighted zones
+
+  annotate(
+
+    "text",
+
+    x = 1,
+
+    y = -40,
+
+    label  = label_text, size = 3,
+
+    color = "black",
+
+    hjust = 0  # Left-aligned text
+
+  ) +
+
+ 
+
+  # Set axis labels, title, and theme
+
+  labs(
+
+    title = "Sagittal Ankle Angle",
+
+#    x = "Percent Stride",
+
+    y = "Angles (degrees) \n Positive is dorsiflexion", textsize = 3
+
+  ) +
+
+ 
+
+  theme_tq() +  # Use minimal theme for clean look
+
+  theme(legend.position = "top") +  # Legend at the top
+
+  coord_cartesian(ylim = c(-50, 50))  # Limit for the y-axis
+
+ 
+
+print(ankleplot)
+
+ 
+
+####-------- Frontal Ankle Angle -----------####
+
+ 
+
+# Read a file using a relative path
+
+rawdata <- read.table("AnkleFront.txt", header = TRUE, sep = "\t")
+
+ 
+
+rows_to_remove <-  c(0,2,3,4)
+
+data_clean <- rawdata[-rows_to_remove, ]
+
+new_column_names <- rawdata[1, ]
+
+colnames(data_clean) <- new_column_names
+
+data_cleaned <- data_clean[-1, ]
+
+Left_AnkleF_Mean <- as.numeric(data_cleaned[ ,4])
+
+Right_AnkleF_Mean <- as.numeric(data_cleaned[ ,8])
+
+time_points <- as.numeric(data_cleaned[ ,1])
+
+ 
+
+ANK_front_data <- data.frame(time_points = time_points,
+
+                             Left_AnkleF_Mean = Left_AnkleF_Mean,
+
+                             Right_AnkleF_Mean = Right_AnkleF_Mean)
+
+ 
+
+data <- data.frame(time_points = time_points,
+
+                   Left_AnkleF_Mean = Left_AnkleF_Mean,
+
+                   Right_AnkleF_Mean = Right_AnkleF_Mean)
+
+ 
+
+ 
+
+# Calculate the relative differences as a percentage
+
+relative_differences <- abs((Left_AnkleF_Mean - Right_AnkleF_Mean ) / ((Left_AnkleF_Mean + Right_AnkleF_Mean ) / 2) * 100)
+
+ 
+
+# Set the threshold for highlighting
+
+threshold <- 10  # 10% threshold
+
+ 
+
+# Find the time points where the relative difference exceeds the threshold
+
+exceed_threshold <- relative_differences > threshold
+
+num_exceed_threshold <- sum(exceed_threshold)
+
+percent_exceed_threshold <- as.numeric(round(((num_exceed_threshold / 101)*100),2))
+
+label_text <- sprintf("Difference threshold was exceeded for %.2f%%", percent_exceed_threshold, textsize = 0.8)
+
+ 
+
+ 
+
+# Create a ggplot with lines for Left and Right Hip Means
+
+AnkleplotF <- ggplot(data, aes(x = time_points)) +
+
+  geom_line(aes(y = Left_AnkleF_Mean, color = "Left Ankle"), size = 1) +  # Blue line for Left Hip
+
+  geom_line(aes(y = Right_AnkleF_Mean, color = "Right Ankle"), size = 1) +  # Red line for Right Hip
+
+  scale_color_manual(values = c("blue", "red")) + # Set custom colors for lines
+
+  labs(color = "") +  # Remove legend title
+
+ 
+
+  # Highlight zones where the relative difference exceeds the threshold
+
+  geom_rect(
+
+    data = subset(data, exceed_threshold),
+
+    aes(xmin = time_points - 0.5, xmax = time_points + 0.5,
+
+        ymin = -30, ymax = 30),
+
+    fill = "gray", alpha = 0.3  # Gray with slight transparency
+
+  ) +
+
+  
+
+  # Add annotation to describe highlighted zones
+
+  annotate(
+
+    "text",
+
+    x = 1,
+
+    y = -25,
+
+    label = label_text, size = 3,
+
+    color = "black",
+
+    hjust = 0  # Left-aligned text
+
+  ) +
+
+ 
+
+  # Set axis labels, title, and theme
+
+  labs(
+
+    title = "Frontal Ankle Angle",
+
+    x = "Percent Stride",
+
+    y = "Angles (degrees)  \n  Positive is eversion", textsize = 3
+
+  ) +
+
+ 
+
+  theme_tq() +  # Use minimal theme for clean look
+
+  theme(legend.position = "top") +  # Legend at the top
+
+  coord_cartesian(ylim = c(-30, 30))  # Limit for the y-axis
+
+ 
+
+print(AnkleplotF)
+
+ 
+
+####-------- Sagittal Knee Angle -----------####
+
+ 
+
+# Read a file using a relative path
+
+rawdata <- read.table("KneeSag.txt", header = TRUE, sep = "\t")
+
+ 
+
+rows_to_remove <-  c(0,2,3,4)
+
+data_clean <- rawdata[-rows_to_remove, ]
+
+new_column_names <- rawdata[1, ]
+
+colnames(data_clean) <- new_column_names
+
+data_cleaned <- data_clean[-1, ]
+
+Left_Knee_Mean <- as.numeric(data_cleaned[ ,4])
+
+Right_Knee_Mean <- as.numeric(data_cleaned[ ,8])
+
+time_points <- as.numeric(data_cleaned[ ,1])
+
+ 
+
+KNEE_sag_data <- data.frame(time_points = time_points,
+
+                   Left_Knee_Mean = Left_Knee_Mean,
+
+                   Right_Knee_Mean = Right_Knee_Mean)
+
+ 
+
+data <- data.frame(time_points = time_points,
+
+                   Left_Knee_Mean = Left_Knee_Mean,
+
+                   Right_Knee_Mean = Right_Knee_Mean)
+
+ 
+
+ 
+
+# Calculate the relative differences as a percentage
+
+relative_differences <- abs((Left_Knee_Mean - Right_Knee_Mean ) / ((Left_Knee_Mean + Right_Knee_Mean ) / 2) * 100)
+
+ 
+
+# Set the threshold for highlighting
+
+threshold <- 10  # 10% threshold
+
+ 
+
+# Find the time points where the relative difference exceeds the threshold
+
+exceed_threshold <- relative_differences > threshold
+
+num_exceed_threshold <- sum(exceed_threshold)
+
+percent_exceed_threshold <- as.numeric(round(((num_exceed_threshold / 101)*100),2))
+
+label_text <- sprintf("Difference threshold was exceeded for %.2f%%", percent_exceed_threshold, textsize = 0.8)
+
+ 
+
+ 
+
+# Create a ggplot with lines for Left and Right Knee Means
+
+Kneeplot <- ggplot(data, aes(x = time_points)) +
+
+  geom_line(aes(y = Left_Knee_Mean, color = "Left Knee"), size = 1) +  # Blue line for Left Knee
+
+  geom_line(aes(y = Right_Knee_Mean, color = "Right Knee"), size = 1) +  # Red line for Right Knee
+
+  scale_color_manual(values = c("blue", "red")) + # Set custom colors for lines
+
+  labs(color = "") +  # Remove legend title
+
+ 
+
+ 
+
+  # Highlight zones where the relative difference exceeds the threshold
+
+  geom_rect(
+
+    data = subset(data, exceed_threshold),
+
+    aes(xmin = time_points - 0.5, xmax = time_points + 0.5,
+
+        ymin = -30, ymax = 180),
+
+    fill = "gray", alpha = 0.3  # Gray with slight transparency
+
+  ) +
+
+  
+
+  # Add annotation to describe highlighted zones
+
+  annotate(
+
+    "text",
+
+    x = 1,
+
+    y = -10,
+
+    label = label_text,size = 3,
+
+    color = "black",
+
+    hjust = 0  # Left-aligned text
+
+  ) +
+
+ 
+
+  # Set axis labels, title, and theme
+
+  labs(
+
+    title = "Sagittal Knee Angle",
+
+#    x = "Percent Stride",
+
+    y = "Angles (degrees)  \n  Positive is flexion", textsize = 3
+
+  ) +
+
+ 
+
+  theme_tq()+  # Use minimal theme for clean look
+
+  theme(legend.position = "top") +  # Legend at the top
+
+  coord_cartesian(ylim = c(-30, 180))  # Limit for the y-axis
+
+ 
+
+print(Kneeplot)
+
+ 
+
+####-------- Sagittal Hip Angle -----------####
+
+ 
+
+# Read a file using a relative path
+
+rawdata <- read.table("HipSag.txt", header = TRUE, sep = "\t")
+
+ 
+
+rows_to_remove <-  c(0,2,3,4)
+
+data_clean <- rawdata[-rows_to_remove, ]
+
+new_column_names <- rawdata[1, ]
+
+colnames(data_clean) <- new_column_names
+
+data_cleaned <- data_clean[-1, ]
+
+Left_Hip_Mean <- as.numeric(data_cleaned[ ,4]) *-1
+
+Right_Hip_Mean <- as.numeric(data_cleaned[ ,8]) *-1
+
+time_points <- as.numeric(data_cleaned[ ,1])
+
+ 
+
+HIP_sag_data <- data.frame(time_points = time_points,
+
+                   Left_Hip_Mean = Left_Hip_Mean,
+
+                   Right_Hip_Mean = Right_Hip_Mean)
+
+ 
+
+data <- data.frame(time_points = time_points,
+
+                   Left_Hip_Mean = Left_Hip_Mean,
+
+                   Right_Hip_Mean = Right_Hip_Mean)
+
+ 
+
+ 
+
+# Calculate the relative differences as a percentage
+
+relative_differences <- abs((Left_Hip_Mean - Right_Hip_Mean ) / ((Left_Hip_Mean + Right_Hip_Mean ) / 2) * 100)
+
+ 
+
+# Set the threshold for highlighting
+
+threshold <- 10  # 10% threshold
+
+ 
+
+# Find the time points where the relative difference exceeds the threshold
+
+exceed_threshold <- relative_differences > threshold
+
+num_exceed_threshold <- sum(exceed_threshold)
+
+percent_exceed_threshold <- as.numeric(round(((num_exceed_threshold / 101)*100),2))
+
+label_text <- sprintf("Difference threshold was exceeded for %.2f%%", percent_exceed_threshold, textsize = 0.8)
+
+ 
+
+ 
+
+# Create a ggplot with lines for Left and Right Hip Means
+
+HipplotS <- ggplot(data, aes(x = time_points)) +
+
+  geom_line(aes(y = Left_Hip_Mean, color = "Left Hip"), size = 1) +  # Blue line for Left Hip
+
+  geom_line(aes(y = Right_Hip_Mean, color = "Right Hip"), size = 1) +  # Red line for Right Hip
+
+  scale_color_manual(values = c("blue", "red")) + # Set custom colors for lines
+
+  labs(color = "") +  # Remove legend title
+
+ 
+
+  # Highlight zones where the relative difference exceeds the threshold
+
+  geom_rect(
+
+    data = subset(data, exceed_threshold),
+
+    aes(xmin = time_points - 0.5, xmax = time_points + 0.5,
+
+        ymin = -60, ymax = 60),
+
+    fill = "gray", alpha = 0.3  # Gray with slight transparency
+
+  ) +
+
+  
+
+  # Add annotation to describe highlighted zones
+
+  annotate(
+
+    "text",
+
+    x = 1,
+
+    y = -50,
+
+    label = label_text,size = 3,
+
+    color = "black",
+
+    hjust = 0  # Left-aligned text
+
+  ) +
+
+ 
+
+  # Set axis labels, title, and theme
+
+  labs(
+
+    title = "Sagittal Hip Angle",
+
+    x = "Percent Stride",
+
+    y = "Angles (degrees)  \n  Positive is flexion", textsize = 3
+
+  ) +
+
+ 
+
+  theme_tq() +  # Use minimal theme for clean look
+
+  theme(legend.position = "top") +  # Legend at the top
+
+  coord_cartesian(ylim = c(-60, 60))  # Limit for the y-axis
+
+ 
+
+print(HipplotS)
+
+ 
+
+####-------- Frontal Hip Angle -----------####
+
+ 
+
+# Read a file using a relative path
+
+rawdata <- read.table("HipFront.txt", header = TRUE, sep = "\t")
+
+ 
+
+rows_to_remove <-  c(0,2,3,4)
+
+data_clean <- rawdata[-rows_to_remove, ]
+
+new_column_names <- rawdata[1, ]
+
+colnames(data_clean) <- new_column_names
+
+data_cleaned <- data_clean[-1, ]
+
+Left_HipF_Mean <- as.numeric(data_cleaned[ ,4])
+
+Right_HipF_Mean <- as.numeric(data_cleaned[ ,8])
+
+time_points <- as.numeric(data_cleaned[ ,1])
+
+ 
+
+HIP_front_data <- data.frame(time_points = time_points,
+
+                   Left_HipF_Mean = Left_HipF_Mean,
+
+                   Right_HipF_Mean = Right_HipF_Mean)
+
+ 
+
+data <- data.frame(time_points = time_points,
+
+                   Left_HipF_Mean = Left_HipF_Mean,
+
+                   Right_HipF_Mean = Right_HipF_Mean)
+
+ 
+
+ 
+
+# Calculate the relative differences as a percentage
+
+relative_differences <- abs((Left_HipF_Mean - Right_HipF_Mean ) / ((Left_HipF_Mean + Right_HipF_Mean ) / 2) * 100)
+
+ 
+
+# Set the threshold for highlighting
+
+threshold <- 10  # 10% threshold
+
+ 
+
+# Find the time points where the relative difference exceeds the threshold
+
+exceed_threshold <- relative_differences > threshold
+
+num_exceed_threshold <- sum(exceed_threshold)
+
+percent_exceed_threshold <- as.numeric(round(((num_exceed_threshold / 101)*100),2))
+
+label_text <- sprintf("Difference threshold was exceeded for %.2f%%", percent_exceed_threshold, textsize = 0.8)
+
+ 
+
+ 
+
+# Create a ggplot with lines for Left and Right Hip Means
+
+HipplotF <- ggplot(data, aes(x = time_points)) +
+
+  geom_line(aes(y = Left_HipF_Mean, color = "Left Hip"), size = 1) +  # Blue line for Left Hip
+
+  geom_line(aes(y = Right_HipF_Mean, color = "Right Hip"), size = 1) +  # Red line for Right Hip
+
+  scale_color_manual(values = c("blue", "red")) + # Set custom colors for lines
+
+  labs(color = "") +  # Remove legend title
+
+ 
+
+  # Highlight zones where the relative difference exceeds the threshold
+
+  geom_rect(
+
+    data = subset(data, exceed_threshold),
+
+    aes(xmin = time_points - 0.5, xmax = time_points + 0.5,
+
+        ymin = -30, ymax = 30),
+
+    fill = "gray", alpha = 0.3  # Gray with slight transparency
+
+  ) +
+
+  
+
+  # Add annotation to describe highlighted zones
+
+  annotate(
+
+    "text",
+
+    x = 1,
+
+    y = -25,
+
+    label = label_text, size = 3,
+
+    color = "black",
+
+    hjust = 0  # Left-aligned text
+
+  ) +
+
+ 
+
+  # Set axis labels, title, and theme
+
+  labs(
+
+    title = "Frontal Hip Angle",
+
+    x = "Percent Stride",
+
+    y = "Angles (degrees)  \n  Positive is ADduction", textsize = 3
+
+  ) +
+
+ 
+
+  theme_tq() +  # Use minimal theme for clean look
+
+  theme(legend.position = "top") +  # Legend at the top
+
+  coord_cartesian(ylim = c(-30, 30))  # Limit for the y-axis
+
+ 
+
+print(HipplotF)
+
+ 
+
+####
+
+United States Olympic & Paralympic Committee
+Lex Gidley, PhD, CSCS, EMT-B  | Data Scientist
+1 Olympic Plaza
+Colorado Springs, Colorado 80909
+ (m) +1 719-238-5032
+usopc.org  | teamusa.com  
+
+-------- Pelvic Obliquity -----------####
+
+ 
+
+# Read a file using a relative path
+
+rawdata <- read.table("PelvOblq.txt", header = TRUE, sep = "\t")
+
+ 
+
+rows_to_remove <-  c(0,2,3,4)
+
+data_clean <- rawdata[-rows_to_remove, ]
+
+new_column_names <- rawdata[1, ]
+
+colnames(data_clean) <- new_column_names
+
+data_cleaned <- data_clean[-1, ]
+
+Left_Pelv_Mean <- as.numeric(data_cleaned[ ,4])
+
+Right_Pelv_Mean <- as.numeric(data_cleaned[ ,8])*-1
+
+time_points <- as.numeric(data_cleaned[ ,1])
+
+ 
+
+PELV_obliq_data <- data.frame(time_points = time_points,
+
+                   Left_Pelv_Mean = Left_Pelv_Mean,
+
+                   Right_Pelv_Mean = Right_Pelv_Mean)
+
+ 
+
+ 
+
+data <- data.frame(time_points = time_points,
+
+                   Left_Pelv_Mean = Left_Pelv_Mean,
+
+                   Right_Pelv_Mean = Right_Pelv_Mean)
+
+ 
+
+ 
+
+# Calculate the relative differences as a percentage
+
+relative_differences <- abs((Left_Pelv_Mean - Right_Pelv_Mean ) / ((Left_Pelv_Mean + Right_Pelv_Mean ) / 2) * 100)
+
+ 
+
+# Set the threshold for highlighting
+
+threshold <- 10  # 10% threshold
+
+ 
+
+# Find the time points where the relative difference exceeds the threshold
+
+exceed_threshold <- relative_differences > threshold
+
+num_exceed_threshold <- sum(exceed_threshold)
+
+percent_exceed_threshold <- as.numeric(round(((num_exceed_threshold / 101)*100),2))
+
+label_text <- sprintf("Difference threshold was exceeded for %.2f%%", percent_exceed_threshold, textsize = 0.8)
+
+ 
+
+ 
+
+# Create a ggplot with lines for Left and Right Pelv Means
+
+PelvplotF <- ggplot(data, aes(x = time_points)) +
+
+  geom_line(aes(y = Left_Pelv_Mean, color = "Left Pelv"), size = 1) +  # Blue line for Left Pelv
+
+  geom_line(aes(y = Right_Pelv_Mean, color = "Right Pelv"), size = 1) +  # Red line for Right Pelv
+
+  scale_color_manual(values = c("blue", "red")) + # Set custom colors for lines
+
+  labs(color = "") +  # Remove legend title
+
+ 
+
+  # Highlight zones where the relative difference exceeds the threshold
+
+  geom_rect(
+
+    data = subset(data, exceed_threshold),
+
+    aes(xmin = time_points - 0.5, xmax = time_points + 0.5,
+
+        ymin = -30, ymax = 30),
+
+    fill = "gray", alpha = 0.3  # Gray with slight transparency
+
+  ) +
+
+  
+
+  # Add annotation to describe highlighted zones
+
+  annotate(
+
+    "text",
+
+    x = 1,
+
+    y = -25,
+
+    label = label_text, size = 3,
+
+    color = "black",
+
+    hjust = 0  # Left-aligned text
+
+  ) +
+
+ 
+
+  # Set axis labels, title, and theme
+
+  labs(
+
+    title = "Frontal Pelvic Angle",
+
+    x = "Percent Stride",
+
+    y = "Angles (degrees)  \n  Pelvic drop is negative", textsize = 3
+
+  ) +
+
+ 
+
+  theme_tq() +  # Use minimal theme for clean look
+
+  theme(legend.position = "top") +  # Legend at the top
+
+  coord_cartesian(ylim = c(-30, 30))  # Limit for the y-axis
+
+ 
+
+print(PelvplotF)
+
+ 
+
+#### ---------- SAVE THE DATA FOR THE NEXT STEP - multiple speeds ---------------- ####
+
+ 
+
+ 
+
+# Combine data frames by adding columns
+
+combined_df <- cbind(ANK_sag_data, KNEE_sag_data, HIP_sag_data, ANK_front_data, HIP_front_data, PELV_obliq_data)
+
+ 
+
+# Save to CSV
+
+write.csv(combined_df, "LDG - example walking data.csv", row.names = FALSE)
+
+ 
+
+ 
+
+### ----------------------------------------------------------------- ####
+
+### COORDINATION - VECTOR CODING
+
+### Hip - Knee, Hip - Ankle, Knee - Ankle all sagittal plane
+
+### HipF - Knee: Hip frontal plane and knee sagittal reflecting addtional gravitational resistance
+
+ 
+
+theta_HK_R <-  abs((atan2(diff(Right_Knee_Mean), diff(Right_Hip_Mean)))* (180 / pi))
+
+ 
+
+theta_HK_L <-  abs((atan2(diff(Left_Knee_Mean), diff(Left_Hip_Mean)))* (180 / pi))
+
+ 
+
+theta_HA_R <-  abs((atan2(diff(Right_Ankle_Mean), diff(Right_Hip_Mean)))* (180 / pi))
+
+ 
+
+theta_HA_L <-  abs((atan2(diff(Left_Ankle_Mean), diff(Left_Hip_Mean)))* (180 / pi))
+
+ 
+
+theta_KA_R <-  abs((atan2(diff(Right_Ankle_Mean), diff(Right_Knee_Mean)))* (180 / pi))
+
+ 
+
+theta_KA_L <-  abs((atan2(diff(Left_Ankle_Mean), diff(Left_Knee_Mean)))* (180 / pi))
+
+ 
+
+theta_HK_R_F <-  abs((atan2(diff(Right_Knee_Mean), diff(Right_HipF_Mean)))* (180 / pi))
+
+ 
+
+theta_HK_L_F <-  abs((atan2(diff(Left_Knee_Mean), diff(Left_HipF_Mean)))* (180 / pi))
+
+ 
+
+Vector_TimePoints <- as.numeric(1: 100)
+
+ 
+
+# Create a ggplot with lines for Left and Right Vector Coding Hip-Knee
+
+HK_VC_sag <- ggplot() +
+
+  geom_line(aes(x = Vector_TimePoints, y = theta_HK_L, color = "Left HK"), size = 1) +
+
+  geom_line(aes(x = Vector_TimePoints, y = theta_HK_R, color = "Right HK"), size = 1) +
+
+  scale_color_manual(values = c("blue", "red")) +
+
+  labs(color = "") + # Remove legend title
+
+ 
+
+  # Highlight zones where the relative difference exceeds the threshold
+
+  geom_hline(yintercept = c(90, 180), linetype = "dashed", color = "black", size = 0.7) +
+
+  annotate("text", x = 25, y = 45, label = "In Phase", size = 3) +
+
+  annotate("text", x = 75, y = 135, label = "Out of Phase", size = 3) +
+
+  geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = 0, ymax = 90), fill = "lightgray", alpha = 0.3) +
+
+ 
+
+  # Customize y-axis ticks
+
+  scale_y_continuous(
+
+    breaks = c(90, 180),
+
+    labels = c("90", "180"),
+
+    expand = c(0, 0),
+
+    limits = c(0, 180)
+
+  )+
+
+ 
+
+  # Set axis labels, title, and theme
+
+labs(
+
+  title = "HIP-KNEE Vector Coding Coordination",
+
+  x = "Percent Stride",
+
+  y = "Angles (degrees)") +
+
+  theme_tq() +
+
+  theme(legend.position = "top") +
+
+  coord_cartesian(ylim = c(0, 180))
+
+ 
+
+print(HK_VC_sag)
+
+ 
+
+# Create a ggplot with lines for Left and Right Vector Coding Hip-Ankle
+
+HA_VC_sag <- ggplot() +
+
+  geom_line(aes(x = Vector_TimePoints, y = theta_HA_L, color = "Left HA"), size = 1) +
+
+  geom_line(aes(x = Vector_TimePoints, y = theta_HA_R, color = "Right HA"), size = 1) +
+
+  scale_color_manual(values = c("blue", "red")) +
+
+  labs(color = "") + # Remove legend title
+
+ 
+
+  # Highlight zones where the relative difference exceeds the threshold
+
+  geom_hline(yintercept = c(90, 180, 270), linetype = "dashed", color = "black", size = 0.7) +
+
+  annotate("text", x = 25, y = 45, label = "In Phase", size = 3) +
+
+  annotate("text", x = 75, y = 135, label = "Out of Phase", size = 3) +
+
+  geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = 0, ymax = 90), fill = "lightgray", alpha = 0.3) +
+
+ 
+
+ 
+
+  # Customize y-axis ticks
+
+  scale_y_continuous(
+
+    breaks = c(90, 180),
+
+    labels = c("90", "180"),
+
+    expand = c(0, 0),
+
+    limits = c(0, 360)
+
+  )+
+
+ 
+
+  # Set axis labels, title, and theme
+
+  labs(
+
+    title = "HIP-ANKLE Vector Coding Coordination",
+
+    x = "Percent Stride",
+
+    y = "Angles (degrees)") +
+
+  theme_tq() +
+
+  theme(legend.position = "top") +
+
+  coord_cartesian(ylim = c(0, 180))
+
+ 
+
+print(HA_VC_sag)
+
+ 
+
+# Create a ggplot with lines for Left and Right Vector Coding Knee-Ankle
+
+KA_VC_sag <- ggplot() +
+
+  geom_line(aes(x = Vector_TimePoints, y = theta_KA_L, color = "Left KA"), size = 1) +
+
+  geom_line(aes(x = Vector_TimePoints, y = theta_KA_R, color = "Right KA"), size = 1) +
+
+  scale_color_manual(values = c("blue", "red")) +
+
+  labs(color = "") + # Remove legend title
+
+ 
+
+  # Highlight zones where the relative difference exceeds the threshold
+
+  geom_hline(yintercept = c(90, 180), linetype = "dashed", color = "black", size = 0.7) +
+
+  annotate("text", x = 25, y = 45, label = "In Phase", size = 3) +
+
+  annotate("text", x = 75, y = 135, label = "Out of Phase", size = 3) +
+
+ 
+
+  geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = 0, ymax = 90), fill = "lightgray", alpha = 0.3) +
+
+ 
+
+ 
+
+  # Customize y-axis ticks
+
+  scale_y_continuous(
+
+    breaks = c(90, 180),
+
+    labels = c("90", "180"),
+
+    expand = c(0, 0),
+
+    limits = c(0, 180)
+
+  )+
+
+ 
+
+  # Set axis labels, title, and theme
+
+  labs(
+
+    title = "KNEE-ANKLE Vector Coding Coordination",
+
+    x = "Percent Stride",
+
+    y = "Angles (degrees)") +
+
+  theme_tq() +
+
+  theme(legend.position = "top") +
+
+  coord_cartesian(ylim = c(0, 180))
+
+ 
+
+print(KA_VC_sag)
+
+ 
+
+# Create a ggplot with lines for Left and Right Vector Coding Knee-Ankle
+
+HK_VC_F <- ggplot() +
+
+  geom_line(aes(x = Vector_TimePoints, y = theta_HK_L_F, color = "Left HK_F"), size = 1) +
+
+  geom_line(aes(x = Vector_TimePoints, y = theta_HK_R_F, color = "Right HK_F"), size = 1) +
+
+  scale_color_manual(values = c("blue", "red")) +
+
+  labs(color = "") + # Remove legend title
+
+ 
+
+  # Highlight zones where the relative difference exceeds the threshold
+
+  geom_hline(yintercept = c(90, 180), linetype = "dashed", color = "black", size = 0.7) +
+
+  annotate("text", x = 25, y = 45, label = "In Phase", size = 3) +
+
+  annotate("text", x = 75, y = 135, label = "Out of Phase", size = 3) +
+
+  geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = 0, ymax = 90), fill = "lightgray", alpha = 0.3) +
+
+ 
+
+  # Customize y-axis ticks
+
+  scale_y_continuous(
+
+    breaks = c(90, 180),
+
+    labels = c("90", "180"),
+
+    expand = c(0, 0),
+
+    limits = c(0, 180)
+
+  )+
+
+ 
+
+  # Set axis labels, title, and theme
+
+  labs(
+
+    title = "       HIP ADDUCTION - KNEE FLEXION \n                  Vector Coding Coordination",
+
+    x = "Percent Stride",
+
+    y = "Angles (degrees)") +
+
+  theme_tq() +
+
+  theme(legend.position = "top") +
+
+  coord_cartesian(ylim = c(0, 180))
+
+ 
+
+print(HK_VC_F)
+
+ 
+
+####---- Make PDF Report ----####
+
+ 
+
+# Combine plots into a 2x2 grid
+
+ 
+
+# pick an image to put on the report
+
+logo <- readPNG("C:/Users/gidleyl/OneDrive - United States Olympic and Paralympic Committee/Pictures/USOPCImage.png")
+
+logo_grob <- rasterGrob(logo, interpolate = TRUE) # Convert the image to a graphical object
+
+ 
+
+# Create title and description
+
+title_text_1 <- textGrob("Motion Capture Report - Kinematics", gp = gpar(fontsize = 16, fontface = "bold"))
+
+title_text_2 <- textGrob("Motion Capture Report - Coordination", gp = gpar(fontsize = 16, fontface = "bold"))
+
+description_text_1 <- textGrob("The following plots compare the Right (red) and Left (blue) joint angles for each of the three leg joints
+
+in the sagittal plane (flexion and extension), the frontal plane for the hip (ab/adduction),and the obliquity angle of the pelvis.
+
+Shaded areas on the figures represent where joint angles were different by atleast 10%.", gp = gpar(fontsize = 11))
+
+description_text_2 <- textGrob("The following plots compare the Right (red) and Left (blue) coordination between pairs of joints, for example, Hip and Knee.
+
+This quantification allows us to understand how two joints are working together. For simplicity, this is calculated using
+
+vector coding which allows us to quantify if a joint pair is working in-phase (e.g. both flexing) or out-of-phase
+
+(e.g one flexing, one extending). Only major differences, for example one side is in-phase and the other is out-of-phase,
+
+should stand out as something to consider for therapeutic planning, but could be an indicator of motor pattern development.", gp = gpar(fontsize = 10))
+
+ 
+
+# Page 1
+
+ 
+
+# Create your layout matrix
+
+layout_matrix_page1 <- rbind(
+
+  c(1, 2),  # Row for logo and title
+
+  c(3, 3),  # Description
+
+  c(4, 5),  # 2x2 matrix
+
+  c(6, 7),  # 2x2 matrix
+
+  c(8, 9)   # Larger plot at the bottom
+
+)
+
+ 
+
+# Custom heights for each row
+
+heights_page1 <- c(0.1, 0.1, 0.35, 0.35, 0.35)  # Adjusted to give more space to the bottom plot
+
+ 
+
+# Arrange the plots using grid.arrange()
+
+final_output1 <- grid.arrange(logo_grob, title_text_1,
+
+                             description_text_1, ankleplot, AnkleplotF, Kneeplot, PelvplotF, HipplotS, HipplotF,
+
+                               #  plots
+
+ 
+
+  layout_matrix = layout_matrix_page1,     # Layout structure
+
+  heights = heights_page1                  # Custom heights for rows
+
+)
+
+ 
+
+ 
+
+# Page 2
+
+ 
+
+# Create your layout matrix
+
+layout_matrix_page2 <- rbind(
+
+  c(1, 2),  # Row for logo and title
+
+  c(3, 3),  # Description
+
+  c(4, 5),  # 2x2 matrix
+
+  c(6, 7)  # 2x2 matrix
+
+)
+
+ 
+
+# Custom heights for each row
+
+heights_page2 <- c(0.2, 0.2, 0.5, 0.5)  # Adjusted to give more space to the bottom plot
+
+ 
+
+# Arrange the plots using grid.arrange()
+
+final_output2 <- grid.arrange(logo_grob, title_text_2, description_text_2,
+
+                              HK_VC_sag, HA_VC_sag, KA_VC_sag, HK_VC_F, #  plots
+
+                            
+
+                             layout_matrix = layout_matrix_page2,     # Layout structure
+
+                             heights = heights_page2                  # Custom heights for rows
+
+)
+
+ 
+
+ 
+
+ 
+
+# Save the final output to a PDF - add athlete's initials AA_mocapeval_month_year
+
+#ggsave("GAN_mocapeval_May_2024.pdf", plot = final_output1, width = 8.5, height = 11) 
+
+ 
+
+# Save as PDF with two pages
+
+ 
+
+# Page 1
+
+pdf("output_plots_page1.pdf", width = 8.5, height = 11)  # Open PDF device for page 1
+
+grid.arrange(final_output1)  # Save final_output1 on page 1
+
+dev.off()  # Close PDF device for page 1
+
+ 
+
+# Page 2
+
+pdf("output_plots_page2.pdf", width = 8.5, height = 11)  # Open PDF device for page 2
+
+grid.arrange(final_output2)  # Save final_output2 on page 2
+
+dev.off()  # Close PDF device for page 2
+
+ 
+
+# Combine the two PDF files into a single PDF
+
+pdf_combined <- pdf_combine(c("output_plots_page1.pdf", "output_plots_page2.pdf"), "CC_mocapeval_running_OCT2024_2.pdf")
+
+ 
+
+# Print the path to the combined PDF file
+
+print(pdf_combined)
